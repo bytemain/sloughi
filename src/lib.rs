@@ -33,6 +33,10 @@ impl Sloughi {
     }
 
     pub fn install(&self) -> io::Result<()> {
+        if self.should_skip_in_env() {
+            return Ok(());
+        }
+
         let repo_path = self.repo_path()?;
 
         // setup git config core.hooksPath
@@ -42,6 +46,11 @@ impl Sloughi {
                 io::ErrorKind::Other,
                 "Could not setup git hook path!",
             ));
+        }
+
+        // create hooks directory if not exists
+        if self._hooks_abs_dir(repo_path.as_str()).exists() {
+            return Ok(());
         }
 
         fs::create_dir_all(self._sloughi_script_abs_dir(repo_path.as_str()))?;
@@ -102,6 +111,18 @@ fi
 "#,
         )?;
         Ok(())
+    }
+
+    fn should_skip_in_env(&self) -> bool {
+        for env in self.ignore_envs.iter() {
+            if let Ok(val) = std::env::var(env) {
+                if val.len() > 0 {
+                    return true;
+                }
+            }
+        }
+
+        false
     }
 
     fn set_git_hook_path(&self) -> io::Result<ExitStatus> {
